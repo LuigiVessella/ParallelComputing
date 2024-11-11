@@ -166,6 +166,7 @@ void laplace(float *A, float *Anew, float *daprev, float *danext, int N, int LD,
 
 void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int LD, int Niter)
 {
+    
     int iter, i, j;
     int myid, nproc;
     MPI_Status status;
@@ -182,7 +183,7 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
         if (myid != 0)
         {
             MPI_Isend(A, LD, MPI_FLOAT, myid - 1, 0, MPI_COMM_WORLD, &request1);
-            MPI_Irecv(daprev, LD, MPI_FLOAT, myid - 1, 0, MPI_COMM_WORLD, &request2);
+            MPI_Irecv(daprev, LD, MPI_FLOAT, myid - 1, 0, MPI_COMM_WORLD, &request2); //request2 per daprev
         }
 
         
@@ -191,7 +192,7 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
         if (myid != nproc - 1)
         {
             MPI_Isend(A + (N / nproc - 1) * LD, LD, MPI_FLOAT, myid + 1, 0, MPI_COMM_WORLD, &request3);
-            MPI_Irecv(danext, LD, MPI_FLOAT, myid + 1, 0, MPI_COMM_WORLD, &request4);
+            MPI_Irecv(danext, LD, MPI_FLOAT, myid + 1, 0, MPI_COMM_WORLD, &request4); //request4 per danext
         }
 
         
@@ -206,30 +207,37 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
             }
         }
 
-        MPI_Wait(&request1, &status);
-        MPI_Wait(&request2, &status);
 
 
         // Calcola la prima riga di B se id != 0
         if (myid != 0)
         {
+	    
+            MPI_Wait(&request2, &status); //attendo daprev
             for (j = 1; j < N - 1; j++)
             {
                 Anew[0 * LD + j] = 0.25 * (daprev[j] + A[1 * LD + j] +
                                            A[0 * LD + (j - 1)] + A[0 * LD + (j + 1)]);
             }
-        }
+	
+            MPI_Wait(&request1, &status);
+       }
 
-           MPI_Wait(&request2, &status);
+
+
 
         // Calcola l'ultima riga di B se id != NP-1
         if (myid != nproc - 1)
         {
+
+            MPI_Wait(&request4, &status); //attendo danext
             for (j = 1; j < N - 1; j++)
             {
                 Anew[(N / nproc - 1) * LD + j] = 0.25 * (A[(N / nproc - 2) * LD + j] + danext[j] +
                                                          A[(N / nproc - 1) * LD + (j - 1)] + A[(N / nproc - 1) * LD + (j + 1)]);
             }
+
+            MPI_Wait(&request3, &status);
         }
 
         // Copia la parte interna di B in A
@@ -239,7 +247,7 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
             {
                 A[i * LD + j] = Anew[i * LD + j];
             }
-        }
+       }
 
         // Copia la prima riga di B in A se id != 0
         if (myid != 0)
