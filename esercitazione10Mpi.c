@@ -169,7 +169,7 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
     int iter, i, j;
     int myid, nproc;
     MPI_Status status;
-    MPI_Request request;
+    MPI_Request request1, request2;
 
     
 
@@ -181,8 +181,8 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
         // Se id != 0, invia la prima riga al processo precedente e ricevi l'ultima riga da questo
         if (myid != 0)
         {
-            MPI_Isend(A, LD, MPI_FLOAT, myid - 1, 0, MPI_COMM_WORLD, &request);
-            MPI_Irecv(daprev, LD, MPI_FLOAT, myid - 1, 0, MPI_COMM_WORLD, &request);
+            MPI_Isend(A, LD, MPI_FLOAT, myid - 1, 0, MPI_COMM_WORLD, &request1);
+            MPI_Irecv(daprev, LD, MPI_FLOAT, myid - 1, 0, MPI_COMM_WORLD, &request1);
         }
 
         
@@ -190,8 +190,8 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
         // Se id != NP-1, invia l'ultima riga al processo successivo e ricevi la prima riga da questo
         if (myid != nproc - 1)
         {
-            MPI_Isend(A + (N / nproc - 1) * LD, LD, MPI_FLOAT, myid + 1, 0, MPI_COMM_WORLD, &request);
-            MPI_Irecv(danext, LD, MPI_FLOAT, myid + 1, 0, MPI_COMM_WORLD, &request);
+            MPI_Isend(A + (N / nproc - 1) * LD, LD, MPI_FLOAT, myid + 1, 0, MPI_COMM_WORLD, &request2);
+            MPI_Irecv(danext, LD, MPI_FLOAT, myid + 1, 0, MPI_COMM_WORLD, &request2);
         }
 
         
@@ -206,7 +206,7 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
             }
         }
 
-        MPI_Wait(&request, &status);
+        MPI_Wait(&request1, &status);
 
         // Calcola la prima riga di B se id != 0
         if (myid != 0)
@@ -217,6 +217,8 @@ void laplace_nb(float *A, float *Anew, float *daprev, float *danext, int N, int 
                                            A[0 * LD + (j - 1)] + A[0 * LD + (j + 1)]);
             }
         }
+
+           MPI_Wait(&request2, &status);
 
         // Calcola l'ultima riga di B se id != NP-1
         if (myid != nproc - 1)
