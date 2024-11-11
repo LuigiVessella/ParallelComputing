@@ -1,0 +1,17 @@
+# Ignora tutti i file oggetto
+*.o
+
+# Ignora tutti i file eseguibili
+*.out
+
+# Ignora i file di log
+*.log
+
+# Ignora le directory di build e altre directory temporanee
+/build/
+/temp/
+/tmp/
+
+# Ignora i file di backup creati da editor di testo
+*~
+
