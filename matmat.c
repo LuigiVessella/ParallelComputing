@@ -95,7 +95,7 @@ int main()
         best = gflops2;
 
     t1 = get_cur_time();
-    matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64);
+    matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 512, 512, 512);
     t2 = get_cur_time();
     gflops2 = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
     printf("time matmatblock kji %f gflops kji %f\n", t2 - t1, gflops2);
