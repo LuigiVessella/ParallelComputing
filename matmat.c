@@ -16,10 +16,12 @@ int main()
 {
     int N1 = 512, N2 = 512, N3 = 512;
     int ldA = 1000, ldB = 1000, ldC = 1000;
+    double t1, t2;
     double *A, *B, *C;
     int i, j, k;
     int best = 0;
-    double gflops = 0, gflops2 = 0;
+    double gflops = 0.0, gflops2 = 0.0;
+    double cicler = 0;
 
     // A matrice di N1 righe e N2 colonne
     // B matrice di N2 righe e N3 colonne
@@ -40,65 +42,72 @@ int main()
             C[i * ldC + j] = 0;
         }
     }
+    for (cicler = 256; cicler <= 6 * 256; cicler += 256)
+    {
+        printf("\n-----cicler: %f\n", cicler);
+        N1 = cicler;
+        N2 = cicler;
+        N3 = cicler;
 
-    double t1 = get_cur_time();
-    matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    double t2 = get_cur_time();
-    gflops = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
-    printf("time ijk %f gflops ijk %f\n", t2 - t1, gflops);
+        t1 = get_cur_time();
+        matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time ijk %f gflops ijk %f\n", t2 - t1, gflops);
 
-    best = gflops;
+        best = gflops;
 
-    t1 = get_cur_time();
-    matmatjik(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
-    printf("time jik %f gflops jik %f\n", t2 - t1, gflops2);
+        t1 = get_cur_time();
+        matmatjik(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time jik %f gflops jik %f\n", t2 - t1, gflops2);
 
-    if (gflops2 < best)
-        best = gflops2;
+        if (gflops2 < best)
+            best = gflops2;
 
-    t1 = get_cur_time();
-    matmatikj(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
-    printf("time ikj %f gflops ikj %f\n", t2 - t1, gflops2);
+        t1 = get_cur_time();
+        matmatikj(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time ikj %f gflops ikj %f\n", t2 - t1, gflops2);
 
-    if (gflops2 < best)
-        best = gflops2;
+        if (gflops2 < best)
+            best = gflops2;
 
-    t1 = get_cur_time();
-    matmatjki(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
-    printf("time jki %f gflops jki %f\n", t2 - t1, gflops2);
+        t1 = get_cur_time();
+        matmatjki(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time jki %f gflops jki %f\n", t2 - t1, gflops2);
 
-    if (gflops2 < best)
-        best = gflops2;
+        if (gflops2 < best)
+            best = gflops2;
 
-    t1 = get_cur_time();
-    matmatkij(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
-    printf("time kij %f gflops kij %f\n", t2 - t1, gflops2);
+        t1 = get_cur_time();
+        matmatkij(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time kij %f gflops kij %f\n", t2 - t1, gflops2);
 
-    if (gflops2 < best)
-        best = gflops2;
+        if (gflops2 < best)
+            best = gflops2;
 
-    t1 = get_cur_time();
-    matmatkji(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
-    printf("time kji %f gflops kji %f\n", t2 - t1, gflops2);
+        t1 = get_cur_time();
+        matmatkji(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time kji %f gflops kji %f\n", t2 - t1, gflops2);
 
-    if (gflops2 < best)
-        best = gflops2;
+        if (gflops2 < best)
+            best = gflops2;
 
-    t1 = get_cur_time();
-    matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 512, 512, 512);
-    t2 = get_cur_time();
-    gflops2 = (2 * (N1 * N2 * N3)) / (t2 - t1) / 1e9;
-    printf("time matmatblock kji %f gflops kji %f\n", t2 - t1, gflops2);
+        t1 = get_cur_time();
+        matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time matmatblock kji %f gflops kji %f\n", t2 - t1, gflops2);
+    }
 
     return 0;
 }
