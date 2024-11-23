@@ -1,0 +1,60 @@
+
+-----cicler: 256.000000
+time ijk 0.025499 gflops ijk 1.315919
+time jik 0.023357 gflops jik 1.436595
+time ikj 0.004271 gflops ikj 7.856285
+time jki 0.023616 gflops jki 1.420830
+time kij 0.004043 gflops kij 8.299669
+time kji 0.019189 gflops kji 1.748639
+time matmatblock ikj 0.002163 gflops ikj 15.511682
+time matmatblockv2 ikj 0.001689 gflops ikj 19.866952
+
+-----cicler: 512.000000
+time ijk 0.145686 gflops ijk 1.842563
+time jik 0.146960 gflops jik 1.826588
+time ikj 0.025070 gflops ikj 10.707458
+time jki 0.115087 gflops jki 2.332456
+time kij 0.027754 gflops kij 9.671932
+time kji 0.118392 gflops kji 2.267345
+time matmatblock ikj 0.017008 gflops ikj 15.782832
+time matmatblockv2 ikj 0.013642 gflops ikj 19.677029
+
+-----cicler: 768.000000
+time ijk 0.522773 gflops ijk 1.733008
+time jik 0.523366 gflops jik 1.731044
+time ikj 0.084739 gflops ikj 10.691299
+time jki 0.387171 gflops jki 2.339973
+time kij 0.094891 gflops kij 9.547494
+time kji 0.398107 gflops kji 2.275694
+time matmatblock ikj 0.058413 gflops ikj 15.509719
+time matmatblockv2 ikj 0.044706 gflops ikj 20.265118
+
+-----cicler: 1024.000000
+time ijk 1.263293 gflops ijk 1.699909
+time jik 1.281939 gflops jik 1.675184
+time ikj 0.249948 gflops ikj 8.591721
+time jki 0.934296 gflops jki 2.298505
+time kij 0.280922 gflops kij 7.644414
+time kji 0.943818 gflops kji 2.275315
+time matmatblock ikj 0.143136 gflops ikj 15.003097
+time matmatblockv2 ikj 0.107539 gflops ikj 19.969359
+
+-----cicler: 1280.000000
+time ijk 2.514344 gflops ijk 1.668150
+time jik 2.570128 gflops jik 1.631944
+time ikj 0.652959 gflops ikj 6.423532
+time jki 3.019524 gflops jki 1.389061
+time kij 0.645037 gflops kij 6.502425
+time kji 2.982791 gflops kji 1.406168
+time matmatblock ikj 0.274700 gflops ikj 15.268675
+time matmatblockv2 ikj 0.213996 gflops ikj 19.599902
+
+-----cicler: 1536.000000
+time ijk 4.694810 gflops ijk 1.543781
+time jik 4.684201 gflops jik 1.547277
+time ikj 1.178010 gflops ikj 6.152543
+time jki 9.406954 gflops jki 0.770468
+time kij 1.504114 gflops kij 4.818623
+time kji 9.732762 gflops kji 0.744676
+time matmatblock ikj 0.481394 gflops ikj 15.055768
+time matmatblockv2 ikj 0.371526 gflops ikj 19.508075
