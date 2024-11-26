@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <omp.h>
+
+#define NT 4
 
 void matmatijk(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
 void matmatjik(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
@@ -11,12 +14,16 @@ void matmatkji(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N
 void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC);
 void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC);
 
-double get_cur_time();
+void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC, int NTROW, int NTCOL);
+void matmatblock_omp(int ldA, int ldB, int ldC, double *A, double *B, double *C,
+                     int N1, int N2, int N3, int dbA, int dbB, int dbC,
+                     int NTrow, int NTcol);
 
+double get_cur_time();
 
 int main()
 {
-    int N1 = 0, N2 = 0, N3 = 0;
+    int N1 = 16, N2 = 16, N3 = 16;
     int ldA = 5000, ldB = 5000, ldC = 5000;
     double t1, t2;
     double *A, *B, *C;
@@ -33,7 +40,84 @@ int main()
     B = (double *)malloc(ldB * ldB * sizeof(double));
     C = (double *)malloc(ldC * ldC * sizeof(double));
 
-    for (cicler = 256; cicler <= 6 * 256; cicler += 256)
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            A[i * ldA + j] = j;
+            B[i * ldB + j] = j;
+            C[i * ldC + j] = 0;
+        }
+    }
+
+    matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            printf("%0.1f ", C[i * ldC + j]);
+        }
+        printf("\n");
+    }
+
+
+
+
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            A[i * ldA + j] = j;
+            B[i * ldB + j] = j;
+            C[i * ldC + j] = 0;
+        }
+    }
+
+    printf("\ns-------------------------\n\n\n");
+    matmatblockv2(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64,64,64);
+
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            printf("%0.1f", C[i * ldC + j]);
+        }
+        printf("\n");
+    }
+
+     for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            A[i * ldA + j] = j;
+            B[i * ldB + j] = j;
+            C[i * ldC + j] = 0;
+        }
+    }
+
+    printf("\ns-------------------------\n\n\n");
+    matmatblock_omp(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64,64,64,2,2);
+
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            printf("%0.1f", C[i * ldC + j]);
+        }
+        printf("\n");
+    }
+
+
+
+    /*for (cicler = 256; cicler <= 3 * 256; cicler += 256)
+
     {
         printf("\n-----cicler: %f\n", cicler);
         N1 = cicler;
@@ -83,7 +167,6 @@ int main()
         t2 = get_cur_time();
         gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
         printf("time jki %f gflops jki %f\n", t2 - t1, gflops2);
-        
 
         if (gflops2 < best)
             best = gflops2;
@@ -112,13 +195,20 @@ int main()
         gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
         printf("time matmatblock ikj %f gflops ikj %f\n", t2 - t1, gflops2);
 
-
         t1 = get_cur_time();
         matmatblockv2(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64);
         t2 = get_cur_time();
         gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
         printf("time matmatblockv2 ikj %f gflops ikj %f\n", t2 - t1, gflops2);
-    }
+
+        // versione parallela
+        printf("versione parallela\n\n");
+        t1 = get_cur_time();
+        matmatblock_omp(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64, 2, 2);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time matmatblockv2 ikj %f gflops ikj %f\n", t2 - t1, gflops2);
+    }*/
 
     return 0;
 }
@@ -141,7 +231,6 @@ void matmatijk(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N
 
 void matmatjik(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
 {
-
 
     int i, j, k;
     for (j = 0; j < N1; j++)
@@ -231,7 +320,7 @@ void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int
         {
             for (jj = 0; jj < N2; jj += dbB)
             {
-               // matmatikj(ldA, ldB, ldC, &A[ii * ldA + kk], &B[kk * ldB + jj], &C[ii * ldC + jj], ii + dbA, jj + dbB, kk + dbC );
+                // matmatikj(ldA, ldB, ldC, &A[ii * ldA + kk], &B[kk * ldB + jj], &C[ii * ldC + jj], ii + dbA, jj + dbB, kk + dbC );
                 // Cicli interni per calcolare i blocchi
                 for (i = ii; i < ii + dbA && i < N1; i++)
                 {
@@ -240,12 +329,9 @@ void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int
                         for (j = jj; j < jj + dbB && j < N2; j++)
                         {
                             C[i * ldC + j] += A[i * ldA + k] * B[k * ldB + j];
-
                         }
                     }
                 }
-
-                
             }
         }
     }
@@ -261,28 +347,64 @@ void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, i
         {
             for (jj = 0; jj < N2; jj += dbB)
             {
-                matmatikj(ldA, ldB, ldC, &A[ii * ldA + kk], &B[kk * ldB + jj], &C[ii * ldC + jj], dbA, dbB, dbC );
-                // Cicli interni per calcolare i blocchi
-                //for (i = ii; i < ii + dbA && i < N1; i++)
-                //{
-                //    for (k = kk; k < kk + dbC && k < N3; k++)
-                //    {
-                //        for (j = jj; j < jj + dbB && j < N2; j++)
-                //        {
-                //            C[i * ldC + j] += A[i * ldA + k] * B[k * ldB + j];
-//
-                //        }
-                //    }
-                //}
-
-
-  
-
-                
+                matmatikj(ldA, ldB, ldC, &A[ii * ldA + kk], &B[kk * ldB + jj], &C[ii * ldC + jj], dbA, dbB, dbC);
             }
         }
     }
 }
+
+void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC, int NTROW, int NTCOL)
+{
+    omp_set_num_threads(NT);
+    int ii, jj, i, j, k;
+
+    for (ii = 0; ii < N1 / NTROW; ii++)
+    {
+        for (jj = 0; jj < N3 / NTCOL; jj++)
+        {
+            i = omp_get_thread_num() + ii * NTROW;
+            j = omp_get_thread_num() + jj * NTCOL;
+            for (k = 0; k < N2; k++)
+            {
+                // matmatblock(ldA, ldB, ldC, A );
+            }
+        }
+    }
+}
+
+void matmatblock_omp(int ldA, int ldB, int ldC, double *A, double *B, double *C,
+                     int N1, int N2, int N3, int dbA, int dbB, int dbC,
+                     int NTrow, int NTcol)
+{
+
+    int thread_id, IDi, IDj, start_i, end_i, start_j, end_j, block_rows, block_cols;
+#pragma omp parallel num_threads(NTrow *NTcol) private(thread_id, IDi, IDj, start_i, end_i, start_j, end_j)
+    {
+        // Identificare il thread
+        thread_id = omp_get_thread_num();
+        IDi = thread_id / NTcol; // Indice della riga
+        IDj = thread_id % NTcol; // Indice della colonna
+
+        // Calcolare i range del blocco gestito dal thread
+        start_i = IDi * (N1 / NTrow);
+        end_i = (IDi + 1) * (N1 / NTrow);
+        start_j = IDj * (N3 / NTcol);
+        end_j = (IDj + 1) * (N3 / NTcol);
+
+        // Determinare le dimensioni dei blocchi da calcolare
+        block_rows = end_i - start_i;
+        block_cols = end_j - start_j;
+
+        // Chiamata alla funzione `matmatblock` per calcolare il blocco
+        matmatblockv2(ldA, ldB, ldC,
+                      &A[start_i * ldA],           // Offset riga del blocco di A
+                      &B[start_j],                 // Offset colonna del blocco di B
+                      &C[start_i * ldC + start_j], // Offset del blocco di C
+                      block_rows, N2, block_cols,
+                      dbA, dbB, dbC);
+    }
+}
+
 double get_cur_time()
 {
     struct timeval tv;
