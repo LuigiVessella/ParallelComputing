@@ -3,7 +3,6 @@
 #include <sys/time.h>
 #include <omp.h>
 
-#define NT 4
 
 void matmatijk(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
 void matmatjik(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
@@ -13,12 +12,7 @@ void matmatkij(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N
 void matmatkji(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
 void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC);
 void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC);
-
 void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC, int NTROW, int NTCOL);
-void matmatblock_omp(int ldA, int ldB, int ldC, double *A, double *B, double *C,
-                     int N1, int N2, int N3, int dbA, int dbB, int dbC,
-                     int NTrow, int NTcol);
-
 double get_cur_time();
 
 int main()
@@ -58,13 +52,10 @@ int main()
         for (j = 0; j < N2; j++)
         {
             // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            printf("%0.1f ", C[i * ldC + j]);
+            printf("%.1f ", C[i * ldC + j]);
         }
         printf("\n");
     }
-
-
-
 
     for (i = 0; i < N1; i++)
     {
@@ -78,19 +69,19 @@ int main()
     }
 
     printf("\ns-------------------------\n\n\n");
-    matmatblockv2(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64,64,64);
+    matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 8, 8, 8);
 
     for (i = 0; i < N1; i++)
     {
         for (j = 0; j < N2; j++)
         {
             // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            printf("%0.1f", C[i * ldC + j]);
+            printf("%.1f", C[i * ldC + j]);
         }
         printf("\n");
     }
 
-     for (i = 0; i < N1; i++)
+    for (i = 0; i < N1; i++)
     {
         for (j = 0; j < N2; j++)
         {
@@ -102,19 +93,17 @@ int main()
     }
 
     printf("\ns-------------------------\n\n\n");
-    matmatblock_omp(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64,64,64,2,2);
+    matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 8, 8, 8, 2, 2);
 
     for (i = 0; i < N1; i++)
     {
         for (j = 0; j < N2; j++)
         {
             // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            printf("%0.1f", C[i * ldC + j]);
+            printf("%.1f", C[i * ldC + j]);
         }
         printf("\n");
     }
-
-
 
     /*for (cicler = 256; cicler <= 3 * 256; cicler += 256)
 
@@ -308,8 +297,8 @@ void matmatkji(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N
         }
     }
 }
-
-void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
+/*
+void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
 {
     int i, j, k;
     int ii, jj, kk;
@@ -336,7 +325,8 @@ void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int
         }
     }
 }
-void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
+*/
+void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
 {
     int i, j, k;
     int ii, jj, kk;
@@ -353,34 +343,18 @@ void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, i
     }
 }
 
-void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC, int NTROW, int NTCOL)
-{
-    omp_set_num_threads(NT);
-    int ii, jj, i, j, k;
 
-    for (ii = 0; ii < N1 / NTROW; ii++)
-    {
-        for (jj = 0; jj < N3 / NTCOL; jj++)
-        {
-            i = omp_get_thread_num() + ii * NTROW;
-            j = omp_get_thread_num() + jj * NTCOL;
-            for (k = 0; k < N2; k++)
-            {
-                // matmatblock(ldA, ldB, ldC, A );
-            }
-        }
-    }
-}
 
-void matmatblock_omp(int ldA, int ldB, int ldC, double *A, double *B, double *C,
+void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,
                      int N1, int N2, int N3, int dbA, int dbB, int dbC,
                      int NTrow, int NTcol)
 {
 
     int thread_id, IDi, IDj, start_i, end_i, start_j, end_j, block_rows, block_cols;
-#pragma omp parallel num_threads(NTrow *NTcol) private(thread_id, IDi, IDj, start_i, end_i, start_j, end_j)
+    omp_set_num_threads(NTrow * NTcol);
+#pragma omp parallel private(thread_id, IDi, IDj, start_i, end_i, start_j, end_j)
     {
-        // Identificare il thread
+
         thread_id = omp_get_thread_num();
         IDi = thread_id / NTcol; // Indice della riga
         IDj = thread_id % NTcol; // Indice della colonna
@@ -396,7 +370,7 @@ void matmatblock_omp(int ldA, int ldB, int ldC, double *A, double *B, double *C,
         block_cols = end_j - start_j;
 
         // Chiamata alla funzione `matmatblock` per calcolare il blocco
-        matmatblockv2(ldA, ldB, ldC,
+        matmatblock(ldA, ldB, ldC,
                       &A[start_i * ldA],           // Offset riga del blocco di A
                       &B[start_j],                 // Offset colonna del blocco di B
                       &C[start_i * ldC + start_j], // Offset del blocco di C
