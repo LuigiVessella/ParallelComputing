@@ -17,6 +17,7 @@ double get_cur_time();
 
 int main()
 {
+
     int N1 = 16, N2 = 16, N3 = 16;
     int ldA = 5000, ldB = 5000, ldC = 5000;
     double t1, t2;
@@ -24,7 +25,7 @@ int main()
     int i, j, k;
     int best = 0;
     double gflops = 0.0, gflops2 = 0.0;
-    double cicler = 0;
+    double cicler = 0.0;
 
     // A matrice di N1 righe e N2 colonne
     // B matrice di N2 righe e N3 colonne
