@@ -35,7 +35,6 @@ int main()
     B = (double *)malloc(ldB * ldB * sizeof(double));
     C = (double *)malloc(ldC * ldC * sizeof(double));
 
-    // inizializzo matrici
     for (i = 0; i < N1; i++)
     {
         for (j = 0; j < N2; j++)
@@ -47,96 +46,160 @@ int main()
         }
     }
 
-    t1 = get_cur_time();
+    printf("B:\n\n");
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            printf("%f ", B[i * ldC + j]);
+        }
+        printf("\n");
+    }
+
     matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time ijk %f gflops ijk %f\n", t2 - t1, gflops);
 
-    best = gflops;
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            printf("%f ", C[i * ldC + j]);
+        }
+        printf("\n");
+    }
 
-    t1 = get_cur_time();
-    matmatjik(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time jik %f gflops jik %f\n", t2 - t1, gflops2);
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            A[i * ldA + j] = 2;
+            B[i * ldB + j] = 3;
+            C[i * ldC + j] = 0;
+        }
+    }
 
-    if (gflops2 < best)
-        best = gflops2;
-
-    t1 = get_cur_time();
-    matmatikj(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time ikj %f gflops ikj %f\n", t2 - t1, gflops2);
-
-    if (gflops2 < best)
-        best = gflops2;
-
-    t1 = get_cur_time();
-    matmatjki(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time jki %f gflops jki %f\n", t2 - t1, gflops2);
-
-    if (gflops2 < best)
-        best = gflops2;
-
-    t1 = get_cur_time();
-    matmatkij(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time kij %f gflops kij %f\n", t2 - t1, gflops2);
-
-    if (gflops2 < best)
-        best = gflops2;
-
-    t1 = get_cur_time();
-    matmatkji(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time kji %f gflops kji %f\n", t2 - t1, gflops2);
-
-    if (gflops2 < best)
-        best = gflops2;
-
-    t1 = get_cur_time();
+    printf("\ns-------------------------\n\n\n");
     matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 2);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time matmatblock ikj %f gflops ikj %f\n", t2 - t1, gflops2);
 
-    // versione parallela
-    printf("versione parallela 1-1\n");
-    t1 = get_cur_time();
-    matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 2, 1, 1);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time versione parallela 1-1 %f gflops ikj %f\n", t2 - t1, gflops2);
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            printf("%f ", C[i * ldC + j]);
+        }
+        printf("\n");
+    }
 
-    // versione parallela
-    printf("versione parallela 1-2\n");
-    t1 = get_cur_time();
-    matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 2, 1, 2);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time versione parallela 1-2 %f gflops ikj %f\n", t2 - t1, gflops2);
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            A[i * ldA + j] = 2;
+            B[i * ldB + j] = 3;
+            C[i * ldC + j] = 0;
+        }
+    }
 
-    // versione parallela
-    printf("versione parallela 2-2\n");
-    t1 = get_cur_time();
-    matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 2, 2, 2);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time versione parallela 2-2 %f gflops ikj %f\n", t2 - t1, gflops2);
+    printf("\ns------------MATMATTHREAD-------------\n\n\n");
+    matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 4, 2, 2);
 
-    // versione parallela
-    printf("versione parallela 2-4\n");
-    t1 = get_cur_time();
-    matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 2, 2, 4);
-    t2 = get_cur_time();
-    gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-    printf("time versione parallela 2-4 %f gflops ikj %f\n", t2 - t1, gflops2);
+    for (i = 0; i < N1; i++)
+    {
+        for (j = 0; j < N2; j++)
+        {
+            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+            printf("%f ", C[i * ldC + j]);
+        }
+        printf("\n");
+    }
+
+
+
+        // inizializzo matrici
+        for (i = 0; i < N1; i++)
+        {
+            for (j = 0; j < N2; j++)
+            {
+                // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
+                A[i * ldA + j] = j;
+                B[i * ldB + j] = j;
+                C[i * ldC + j] = 0;
+            }
+        }
+
+        t1 = get_cur_time();
+        matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time ijk %f gflops ijk %f\n", t2 - t1, gflops);
+
+        best = gflops;
+
+        t1 = get_cur_time();
+        matmatjik(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time jik %f gflops jik %f\n", t2 - t1, gflops2);
+
+        if (gflops2 < best)
+            best = gflops2;
+
+        t1 = get_cur_time();
+        matmatikj(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time ikj %f gflops ikj %f\n", t2 - t1, gflops2);
+
+        if (gflops2 < best)
+            best = gflops2;
+
+        t1 = get_cur_time();
+        matmatjki(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time jki %f gflops jki %f\n", t2 - t1, gflops2);
+
+        if (gflops2 < best)
+            best = gflops2;
+
+        t1 = get_cur_time();
+        matmatkij(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time kij %f gflops kij %f\n", t2 - t1, gflops2);
+
+        if (gflops2 < best)
+            best = gflops2;
+
+        t1 = get_cur_time();
+        matmatkji(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time kji %f gflops kji %f\n", t2 - t1, gflops2);
+
+        if (gflops2 < best)
+            best = gflops2;
+
+        t1 = get_cur_time();
+        matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time matmatblock ikj %f gflops ikj %f\n", t2 - t1, gflops2);
+
+
+
+        // versione parallela
+        printf("versione parallela\n\n");
+        t1 = get_cur_time();
+        matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64, 2, 2);
+        t2 = get_cur_time();
+        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
+        printf("time matmatblockv2 ikj %f gflops ikj %f\n", t2 - t1, gflops2);
+    }
 
     return 0;
 }
@@ -236,11 +299,42 @@ void matmatkji(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N
         }
     }
 }
+/*
+void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
+{
+    int i, j, k;
+    int ii, jj, kk;
+
+    for (ii = 0; ii < N1; ii += dbA)
+    {
+        for (kk = 0; kk < N3; kk += dbC)
+        {
+            for (jj = 0; jj < N2; jj += dbB)
+            {
+                // matmatikj(ldA, ldB, ldC, &A[ii * ldA + kk], &B[kk * ldB + jj], &C[ii * ldC + jj], ii + dbA, jj + dbB, kk + dbC );
+                // Cicli interni per calcolare i blocchi
+                for (i = ii; i < ii + dbA && i < N1; i++)
+                {
+                    for (k = kk; k < kk + dbC && k < N3; k++)
+                    {
+                        for (j = jj; j < jj + dbB && j < N2; j++)
+                        {
+                            C[i * ldC + j] += A[i * ldA + k] * B[k * ldB + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+*/
 
 void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
 {
     int i, j, k;
     int ii, jj, kk;
+
+    printf("ciao sono qui\n");
 
     for (ii = 0; ii < N1; ii += dbA)
     {
@@ -279,7 +373,7 @@ void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,
         block_rows = end_i - start_i;
         block_cols = end_j - start_j;
 
-        //printf("processo %d%d calcola %d %d della mat\n", IDi, IDj, block_rows, block_cols);
+        printf("processo %d%d calcola %d %d della mat\n", IDi, IDj, block_rows, block_cols);
 
         // Chiamata alla funzione `matmatblock` per calcolare il blocco
 
