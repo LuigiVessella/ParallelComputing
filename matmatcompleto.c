@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <omp.h>
+#include <mpi.h>
+
 
 void matmatijk(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
 void matmatjik(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
@@ -379,12 +381,80 @@ void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,
 
         matmatblock(ldA, ldB, ldC,
                     &A[start_i * ldA],           // Offset riga del blocco di A
-                    B,                           // intera matrice B
+                    &B[start_j],                           // intera matrice B
                     &C[start_i * ldC + start_j], // Offset del blocco di C
                     block_rows, N2, block_cols,
                     dbA, dbB, dbC);
     }
 }
+
+
+
+void matmatdist(MPI_Comm Gridcom, int ldA, int ldB, int ldC,
+                double *A, double *B, double *C,
+                int N1, int N2, int N3, int NPRow, int NPCol,
+                int DB1, int DB2, int DB3, int NTrow, int NTcol) {
+
+    int rank, coords[2], size;
+    MPI_Comm_size(Gridcom, &size);
+    MPI_Comm_rank(Gridcom, &rank);
+    MPI_Cart_coords(Gridcom, rank, 2, coords);
+
+    int row = coords[0]; // Riga del processo
+    int col = coords[1]; // Colonna del processo
+
+    // Dimensioni dei blocchi locali
+    int local_N1 = N1 / NPRow;
+    int local_N2 = N2 / NPCol;
+    int local_N3 = N3 / NPCol;
+
+    // Allocazione dei blocchi locali
+    double *local_A = (double *)malloc(local_N1 * local_N2 * sizeof(double));
+    double *local_B = (double *)malloc(local_N2 * local_N3 * sizeof(double));
+    double *local_C = (double *)calloc(local_N1 * local_N3, sizeof(double));
+
+    // Scatter iniziale di A e B ai processi
+    MPI_Scatter(A, local_N1 * local_N2, MPI_DOUBLE, local_A, local_N1 * local_N2, MPI_DOUBLE, 0, Gridcom);
+    MPI_Scatter(B, local_N2 * local_N3, MPI_DOUBLE, local_B, local_N2 * local_N3, MPI_DOUBLE, 0, Gridcom);
+
+    // Buffer per il broadcast
+    double *Acol = (double *)malloc(local_N1 * local_N2 * sizeof(double));
+    double *Brow = (double *)malloc(local_N2 * local_N3 * sizeof(double));
+
+    for (int k = 0; k < NPCol; k++) {
+        // Calcolo delle coordinate per il broadcast
+        int source_col = (col - k + NPCol) % NPCol; // Broadcast lungo la riga
+        int source_row = (row - k + NPRow) % NPRow; // Broadcast lungo la colonna
+
+        // Broadcast del blocco di A lungo la riga
+        if (col == k) {
+            memcpy(Acol, local_A, local_N1 * local_N2 * sizeof(double));
+        }
+        MPI_Bcast(Acol, local_N1 * local_N2, MPI_DOUBLE, k, Gridcom);
+
+        // Broadcast del blocco di B lungo la colonna
+        if (row == k) {
+            memcpy(Brow, local_B, local_N2 * local_N3 * sizeof(double));
+        }
+        MPI_Bcast(Brow, local_N2 * local_N3, MPI_DOUBLE, k, Gridcom);
+
+        // Calcolo del prodotto locale
+        matmatthread(ldA, ldB, ldC, Acol, Brow, local_C,
+                     local_N1, local_N2, local_N3,
+                     DB1, DB2, DB3, NTrow, NTcol);
+    }
+
+    // Raccolta dei risultati finali
+    MPI_Gather(local_C, local_N1 * local_N3, MPI_DOUBLE, C, local_N1 * local_N3, MPI_DOUBLE, 0, Gridcom);
+
+    // Pulizia
+    free(local_A);
+    free(local_B);
+    free(local_C);
+    free(Acol);
+    free(Brow);
+}
+
 
 double get_cur_time()
 {
