@@ -1,241 +1,187 @@
+// usare questo programma chiamante per fare test di correttezza per matmatdist
+// SOLO CON GLIGLIE DI PROCESSI (NPROW , NPCOL) = (1,1) e (2,2)
+
+#include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <omp.h>
 #include <mpi.h>
+#include <stdlib.h>
 
-
-void matmatijk(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
-void matmatjik(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
-void matmatikj(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
-void matmatjki(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
-void matmatkij(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
-void matmatkji(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
-
+void matmatikj(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
+void matmatdist(MPI_Comm, int, int, int, double *, double *, double *, int, int, int, int, int, int, int, int);
 void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC);
-
-void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC, int NTROW, int NTCOL);
+void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,int N1, int N2, int N3, int dbA, int dbB, int dbC,int NTrow, int NTcol);
 double get_cur_time();
 
-int main()
+int main(int argc, char *argv[])
 {
+    int i, j, Nglob, Mglob, Pglob, lda, mcm;
+    int dims[2], period[2], coord[2], TROW, TCOL, rank, size;
+    int X, Y, Q, R;
+    double *A, *B, *C, *D;
+    double time1, time2, Ndouble;
+   
+    MPI_Comm GridCom;
 
-    int N1 = 8, N2 = 8, N3 = 8;
-    int ldA = 50, ldB = 50, ldC = 50;
-    double t1, t2;
-    double *A, *B, *C;
-    int i, j, k;
-    int best = 0;
-    double gflops = 0.0, gflops2 = 0.0;
-    double cicler = 0.0;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    // A matrice di N1 righe e N2 colonne
-    // B matrice di N2 righe e N3 colonne
-    // C matrice di N1 righe e N3 colonne
+    //
+    // qua viene definita la griglia di processi
+    // ATTENZIONE: il prodotto dims[0]*dims[1] deve essere uguale al
+    // numero di processi lanciati da mpirun nel file.pbs
+    //
+    dims[0] = 1;
+    dims[1] = 2;
+    period[0] = 1;
+    period[1] = 1;
+    MPI_Cart_create(MPI_COMM_WORLD, 2, dims, period, 0, &GridCom);
 
-    A = (double *)malloc(ldA * ldA * sizeof(double));
-    B = (double *)malloc(ldB * ldB * sizeof(double));
-    C = (double *)malloc(ldC * ldC * sizeof(double));
+    //
+    // allocazione dello spazio per i test
+    //
+    lda = 6144;
+    A = (double *)malloc(sizeof(double) * lda * lda);
+    B = (double *)malloc(sizeof(double) * lda * lda);
+    C = (double *)malloc(sizeof(double) * lda * lda);
+    D = (double *)malloc(sizeof(double) * lda * lda);
 
-    for (i = 0; i < N1; i++)
+    // ==================================================
+    // test di correttezza risultati. Verificare solo per griglie di processi (1,1) e (2,2)
+    // ==================================================
+
+    Nglob = 2;
+    Mglob = 4;
+    Pglob = 4;
+    TROW = 1;
+    TCOL = 1;
+
+    MPI_Cart_coords(GridCom, rank, 2, coord);
+
+    // il calcolo del mcm serve solo per la stampa del risultato del test di correttezza
+    X = dims[0];
+    Y = dims[1];
+    while (Y != 0)
     {
-        for (j = 0; j < N2; j++)
-        {
-            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            A[i * ldA + j] = 2;
-            B[i * ldB + j] = 3;
-            C[i * ldC + j] = 0;
-        }
+        Q = X / Y;
+        R = X - Q * Y;
+        X = Y;
+        Y = R;
     }
+    mcm = dims[0] * dims[1] / X;
 
-    printf("B:\n\n");
-    for (i = 0; i < N1; i++)
+    //
+    // definizione delle matrici di input
+    //
+    for (i = 0; i < Nglob / dims[0]; i++)
     {
-        for (j = 0; j < N2; j++)
+        for (j = 0; j < Mglob / mcm; j++)
         {
-            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            printf("%f ", B[i * ldC + j]);
+            A[i * lda + j] = coord[0] * dims[1] * Mglob / mcm + coord[1] * Mglob / mcm + i * Mglob + j;
         }
-        printf("\n");
     }
-
-    matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-
-    for (i = 0; i < N1; i++)
+    for (i = 0; i < Mglob / mcm; i++)
     {
-        for (j = 0; j < N2; j++)
+        for (j = 0; j < Pglob / dims[1]; j++)
         {
-            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            printf("%f ", C[i * ldC + j]);
+            B[i * lda + j] = 10 + coord[0] * dims[1] * Pglob + coord[1] * Pglob / dims[1] + i * Pglob + j;
         }
-        printf("\n");
     }
-
-    for (i = 0; i < N1; i++)
+    for (i = 0; i < Nglob / dims[0]; i++)
     {
-        for (j = 0; j < N2; j++)
+        for (j = 0; j < Pglob / dims[1]; j++)
         {
-            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            A[i * ldA + j] = 2;
-            B[i * ldB + j] = 3;
-            C[i * ldC + j] = 0;
+            C[i * lda + j] = 0.0;
         }
     }
 
-    printf("\ns-------------------------\n\n\n");
-    matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 2);
+    matmatdist(GridCom, lda, lda, lda, A, B, C, Nglob, Mglob, Pglob, 1, 1, 1, TROW, TCOL);
 
-    for (i = 0; i < N1; i++)
+    //
+    // stampa delle matrici A, B e C
+    //
+    for (i = 0; i < Nglob / dims[0]; i++)
     {
-        for (j = 0; j < N2; j++)
+        for (j = 0; j < Mglob / mcm; j++)
         {
-            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            printf("%f ", C[i * ldC + j]);
+            printf("MAT A id %d->  %f \n", rank, A[i * lda + j]);
         }
-        printf("\n");
     }
+    printf("------------------\n");
 
-    for (i = 0; i < N1; i++)
+    for (i = 0; i < Mglob / mcm; i++)
     {
-        for (j = 0; j < N2; j++)
+        for (j = 0; j < Pglob / dims[1]; j++)
         {
-            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            A[i * ldA + j] = 2;
-            B[i * ldB + j] = 3;
-            C[i * ldC + j] = 0;
+            printf("MAT B id %d->  %f \n", rank, B[i * lda + j]);
         }
     }
-
-    printf("\ns------------MATMATTHREAD-------------\n\n\n");
-    matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 2, 2, 4, 2, 2);
-
-    for (i = 0; i < N1; i++)
+    printf("------------------\n");
+    for (i = 0; i < Nglob / dims[0]; i++)
     {
-        for (j = 0; j < N2; j++)
+        for (j = 0; j < Pglob / dims[1]; j++)
         {
-            // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-            printf("%f ", C[i * ldC + j]);
+            printf("MAT C id %d->  %f \n", rank, C[i * lda + j]);
         }
-        printf("\n");
     }
 
+    // ==================================================
+    // test di efficienza
+    // ==================================================
 
-
-        // inizializzo matrici
-        for (i = 0; i < N1; i++)
-        {
-            for (j = 0; j < N2; j++)
-            {
-                // usiamo lo stesso ciclo in quanto le dimensioni sono assolutamente uguali
-                A[i * ldA + j] = j;
-                B[i * ldB + j] = j;
-                C[i * ldC + j] = 0;
-            }
-        }
-
-        t1 = get_cur_time();
-        matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t2 = get_cur_time();
-        gflops = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time ijk %f gflops ijk %f\n", t2 - t1, gflops);
-
-        best = gflops;
-
-        t1 = get_cur_time();
-        matmatjik(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t2 = get_cur_time();
-        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time jik %f gflops jik %f\n", t2 - t1, gflops2);
-
-        if (gflops2 < best)
-            best = gflops2;
-
-        t1 = get_cur_time();
-        matmatikj(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t2 = get_cur_time();
-        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time ikj %f gflops ikj %f\n", t2 - t1, gflops2);
-
-        if (gflops2 < best)
-            best = gflops2;
-
-        t1 = get_cur_time();
-        matmatjki(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t2 = get_cur_time();
-        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time jki %f gflops jki %f\n", t2 - t1, gflops2);
-
-        if (gflops2 < best)
-            best = gflops2;
-
-        t1 = get_cur_time();
-        matmatkij(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t2 = get_cur_time();
-        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time kij %f gflops kij %f\n", t2 - t1, gflops2);
-
-        if (gflops2 < best)
-            best = gflops2;
-
-        t1 = get_cur_time();
-        matmatkji(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t2 = get_cur_time();
-        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time kji %f gflops kji %f\n", t2 - t1, gflops2);
-
-        if (gflops2 < best)
-            best = gflops2;
-
-        t1 = get_cur_time();
-        matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64);
-        t2 = get_cur_time();
-        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time matmatblock ikj %f gflops ikj %f\n", t2 - t1, gflops2);
-
-
-
-        // versione parallela
-        printf("versione parallela\n\n");
-        t1 = get_cur_time();
-        matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, 64, 64, 64, 2, 2);
-        t2 = get_cur_time();
-        gflops2 = ((2.0 * ((double)N1 * (double)N2 * (double)N3)) / (t2 - t1)) / 1e9;
-        printf("time matmatblockv2 ikj %f gflops ikj %f\n", t2 - t1, gflops2);
-    }
-
-    return 0;
-}
-
-void matmatijk(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
-{
-
-    int i, j, k;
-    for (i = 0; i < N1; i++)
+    srand(0);
+    for (i = 0; i < lda; i++)
     {
-        for (j = 0; j < N2; j++)
+        for (j = 0; j < lda; j++)
         {
-            for (k = 0; k < N3; k++)
-            {
-                C[i * ldC + j] = C[i * ldC + j] + (A[i * ldA + k] * B[k * ldB + j]);
-            }
+            *(A + i * lda + j) = (float)rand() / RAND_MAX;
+            *(B + i * lda + j) = (float)rand() / RAND_MAX;
+            *(C + i * lda + j) = (float)rand() / RAND_MAX;
+            *(D + i * lda + j) = *(C + i * lda + j);
         }
     }
-}
 
-void matmatjik(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
-{
-
-    int i, j, k;
-    for (j = 0; j < N1; j++)
+    if (rank == 0)
+        printf("               N         time       Gflops\n");
+    for (Nglob = 2048; Nglob <= 2048 * 3; Nglob = Nglob + 2048)
     {
-        for (i = 0; i < N2; i++)
-        {
-            for (k = 0; k < N3; k++)
-            {
-                C[i * ldC + j] = C[i * ldC + j] + (A[i * ldA + k] * B[k * ldB + j]);
-            }
-        }
+        Ndouble = Nglob;
+
+        TROW = 1;
+        TCOL = 1; // test con 1 thread per processo
+        MPI_Barrier(MPI_COMM_WORLD);
+        time1 = get_cur_time();
+        matmatdist(GridCom, lda, lda, lda, A, B, C, Nglob, Nglob, Nglob, 256, 256, 256, TROW, TCOL);
+        time2 = get_cur_time() - time1;
+        printf(" proc = %d:   %4d   %4d   %e  %f \n", rank, Nglob, TROW * TCOL, time2, 2 * Ndouble * Ndouble * Ndouble / time2 / 1.e9);
+
+        TROW = 2;
+        TCOL = 1; // test con 2 thread per processo
+        MPI_Barrier(MPI_COMM_WORLD);
+        time1 = get_cur_time();
+        matmatdist(GridCom, lda, lda, lda, A, B, C, Nglob, Nglob, Nglob, 256, 256, 256, TROW, TCOL);
+        time2 = get_cur_time() - time1;
+        printf(" proc = %d:   %4d   %4d   %e  %f \n", rank, Nglob, TROW * TCOL, time2, 2 * Ndouble * Ndouble * Ndouble / time2 / 1.e9);
+
+        TROW = 2;
+        TCOL = 2; // test con 4 thread per processo
+        MPI_Barrier(MPI_COMM_WORLD);
+        time1 = get_cur_time();
+        matmatdist(GridCom, lda, lda, lda, A, B, C, Nglob, Nglob, Nglob, 256, 256, 256, TROW, TCOL);
+        time2 = get_cur_time() - time1;
+        printf(" proc = %d:   %4d   %4d   %e  %f \n", rank, Nglob, TROW * TCOL, time2, 2 * Ndouble * Ndouble * Ndouble / time2 / 1.e9);
+
+        TROW = 4;
+        TCOL = 2; // test con 4 thread per processo
+        MPI_Barrier(MPI_COMM_WORLD);
+        time1 = get_cur_time();
+        matmatdist(GridCom, lda, lda, lda, A, B, C, Nglob, Nglob, Nglob, 256, 256, 256, TROW, TCOL);
+        time2 = get_cur_time() - time1;
+        printf(" proc = %d:   %4d   %4d   %e  %f \n", rank, Nglob, TROW * TCOL, time2, 2 * Ndouble * Ndouble * Ndouble / time2 / 1.e9);
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
 }
 
 void matmatikj(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
@@ -253,83 +199,6 @@ void matmatikj(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N
         }
     }
 }
-
-void matmatjki(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
-{
-
-    int i, j, k;
-    for (j = 0; j < N1; j++)
-    {
-        for (k = 0; k < N2; k++)
-        {
-            for (i = 0; i < N3; i++)
-            {
-                C[i * ldC + j] = C[i * ldC + j] + (A[i * ldA + k] * B[k * ldB + j]);
-            }
-        }
-    }
-}
-
-void matmatkij(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
-{
-
-    int i, j, k;
-    for (k = 0; k < N1; k++)
-    {
-        for (i = 0; i < N2; i++)
-        {
-            for (j = 0; j < N3; j++)
-            {
-                C[i * ldC + j] = C[i * ldC + j] + (A[i * ldA + k] * B[k * ldB + j]);
-            }
-        }
-    }
-}
-
-void matmatkji(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
-{
-
-    int i, j, k;
-    for (k = 0; k < N1; k++)
-    {
-        for (j = 0; j < N2; j++)
-        {
-            for (i = 0; i < N3; i++)
-            {
-                C[i * ldC + j] = C[i * ldC + j] + (A[i * ldA + k] * B[k * ldB + j]);
-            }
-        }
-    }
-}
-/*
-void matmatblockv2(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
-{
-    int i, j, k;
-    int ii, jj, kk;
-
-    for (ii = 0; ii < N1; ii += dbA)
-    {
-        for (kk = 0; kk < N3; kk += dbC)
-        {
-            for (jj = 0; jj < N2; jj += dbB)
-            {
-                // matmatikj(ldA, ldB, ldC, &A[ii * ldA + kk], &B[kk * ldB + jj], &C[ii * ldC + jj], ii + dbA, jj + dbB, kk + dbC );
-                // Cicli interni per calcolare i blocchi
-                for (i = ii; i < ii + dbA && i < N1; i++)
-                {
-                    for (k = kk; k < kk + dbC && k < N3; k++)
-                    {
-                        for (j = jj; j < jj + dbB && j < N2; j++)
-                        {
-                            C[i * ldC + j] += A[i * ldA + k] * B[k * ldB + j];
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-*/
 
 void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC)
 {
@@ -381,19 +250,18 @@ void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,
 
         matmatblock(ldA, ldB, ldC,
                     &A[start_i * ldA],           // Offset riga del blocco di A
-                    &B[start_j],                           // intera matrice B
+                    &B[start_j],                 // intera matrice B
                     &C[start_i * ldC + start_j], // Offset del blocco di C
                     block_rows, N2, block_cols,
                     dbA, dbB, dbC);
     }
 }
 
-
-
 void matmatdist(MPI_Comm Gridcom, int ldA, int ldB, int ldC,
                 double *A, double *B, double *C,
                 int N1, int N2, int N3, int NPRow, int NPCol,
-                int DB1, int DB2, int DB3, int NTrow, int NTcol) {
+                int DB1, int DB2, int DB3, int NTrow, int NTcol)
+{
 
     int rank, coords[2], size;
     MPI_Comm_size(Gridcom, &size);
@@ -421,19 +289,22 @@ void matmatdist(MPI_Comm Gridcom, int ldA, int ldB, int ldC,
     double *Acol = (double *)malloc(local_N1 * local_N2 * sizeof(double));
     double *Brow = (double *)malloc(local_N2 * local_N3 * sizeof(double));
 
-    for (int k = 0; k < NPCol; k++) {
+    for (int k = 0; k < NPCol; k++)
+    {
         // Calcolo delle coordinate per il broadcast
         int source_col = (col - k + NPCol) % NPCol; // Broadcast lungo la riga
         int source_row = (row - k + NPRow) % NPRow; // Broadcast lungo la colonna
 
         // Broadcast del blocco di A lungo la riga
-        if (col == k) {
+        if (col == k)
+        {
             memcpy(Acol, local_A, local_N1 * local_N2 * sizeof(double));
         }
         MPI_Bcast(Acol, local_N1 * local_N2, MPI_DOUBLE, k, Gridcom);
 
         // Broadcast del blocco di B lungo la colonna
-        if (row == k) {
+        if (row == k)
+        {
             memcpy(Brow, local_B, local_N2 * local_N3 * sizeof(double));
         }
         MPI_Bcast(Brow, local_N2 * local_N3, MPI_DOUBLE, k, Gridcom);
@@ -454,7 +325,6 @@ void matmatdist(MPI_Comm Gridcom, int ldA, int ldB, int ldC,
     free(Acol);
     free(Brow);
 }
-
 
 double get_cur_time()
 {
