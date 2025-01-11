@@ -324,7 +324,7 @@ void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,
                     &A[start_i * ldA],           // Offset riga del blocco di A
                     &B[start_j],                 // Offset colonna del blocco di B
                     &C[start_i * ldC + start_j], // Offset del blocco di C
-                    block_rows, N2, block_cols,
+                    N1/NTrow, N2, N3/NTcol,
                     dbA, dbB, dbC);
     }
 }
