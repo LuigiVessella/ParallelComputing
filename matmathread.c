@@ -1,3 +1,15 @@
+/*
+Per compilare, su Mac silicon M1, è necessario utilizzare il comando:
+clang -O3 -Xclang -fopenmp -L/opt/homebrew/opt/libomp/lib -I/opt/homebrew/opt/libomp/include -lomp matmathread.c -o matmathread
+
+Questo dopo aver installato libomp con il comando:
+brew install libomp
+
+Su altre piattaforme, la procedura è simile, ma potrebbero essere necessarie modifiche ai comandi.
+
+Ricordare la flag -O3 per l'ottimizzazione del codice, altrimenti non otterrete i gflops attesi.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -12,98 +24,104 @@ void matmatkij(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N
 void matmatkji(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
 void initialize_matrices(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
 double calculate_gflops(int N1, int N2, int N3, double time_seconds);
+int compare_matrices(double *C1, double *C2, int ldC, int N1, int N3);
 void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC);
 void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC, int NTROW, int NTCOL);
 double get_cur_time();
 
 int main()
 {
-
-    int N1 = 1024, N2 = 1024, N3 = 1024;
-    int ldA = 5000, ldB = 5000, ldC = 5000;
+    int dimensions[] = {1024, 2048};
+    int num_dimensions = 2;
+    int ldA = 3500, ldB = 3500, ldC = 3500;
     int dbA = 256, dbB = 256, dbC = 256;
-
     double t1, t2;
-    double *A, *B, *C;
-    int i, j, k;
-    int best = 0;
+    double *A, *B, *C, *C_block;
+    int i, j, k, dim_idx;
     double gflops = 0.0, gflops2 = 0.0;
     double cicler = 0.0;
-
-    // A matrice di N1 righe e N2 colonne
-    // B matrice di N2 righe e N3 colonne
-    // C matrice di N1 righe e N3 colonne
-
-    double *C_block = (double *)malloc(ldC * ldC * sizeof(double));
-    A = (double *)malloc(ldA * ldA * sizeof(double));
-    B = (double *)malloc(ldB * ldB * sizeof(double));
-    C = (double *)malloc(ldC * ldC * sizeof(double));
 
     int NTROW_values[] = {1, 2, 2, 2};
     int NTCOL_values[] = {1, 1, 2, 4};
     int num_combinations = 4;
-    int idx; // indice per le combinazioni
+    int idx;
 
-    for (idx = 0; idx < num_combinations; idx++)
+    for (dim_idx = 0; dim_idx < num_dimensions; dim_idx++)
     {
-        int NTROW = NTROW_values[idx];
-        int NTCOL = NTCOL_values[idx];
+        int N1 = dimensions[dim_idx];
+        int N2 = dimensions[dim_idx];
+        int N3 = dimensions[dim_idx];
 
-        printf("\n--- Iterazione %d: NTROW = %d, NTCOL = %d ---\n", idx + 1, NTROW, NTCOL);
+        printf("\n\n=== Test con dimensione %dx%dx%d ===\n", N1, N2, N3);
 
-        // inizializzo matrici
-        initialize_matrices(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+        C_block = (double *)malloc(ldC * ldC * sizeof(double));
+        A = (double *)malloc(ldA * ldA * sizeof(double));
+        B = (double *)malloc(ldB * ldB * sizeof(double));
+        C = (double *)malloc(ldC * ldC * sizeof(double));
 
-        t1 = get_cur_time();
-        matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t2 = get_cur_time();
-        gflops = calculate_gflops(N1, N2, N3, t2 - t1);
-        printf("ijk: time = %f s, GFLOPS = %f\n", t2 - t1, gflops);
-
-        // Copia il risultato di C in C_block per il confronto
-        memcpy(C_block, C, ldC * ldC * sizeof(double));
-
-        // Esegui matmatblock
-        initialize_matrices(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t1 = get_cur_time();
-        matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, dbA, dbB, dbC);
-        t2 = get_cur_time();
-        gflops2 = calculate_gflops(N1, N2, N3, t2 - t1);
-        printf("block: time = %f s, GFLOPS = %f\n", t2 - t1, gflops2);
-
-        // Confronta i risultati
-        if (compare_matrices(C, C_block, ldC, N1, N3))
+        for (idx = 0; idx < num_combinations; idx++)
         {
-            printf("Le matrici sono uguali.\n");
-        }
-        else
-        {
-            printf("Le matrici non sono uguali.\n");
-        }
+            int NTROW = NTROW_values[idx];
+            int NTCOL = NTCOL_values[idx];
 
-        // Esegui matmatthread
-        initialize_matrices(ldA, ldB, ldC, A, B, C, N1, N2, N3);
-        t1 = get_cur_time();
-        matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, dbA, dbB, dbC, NTROW, NTCOL);
-        t2 = get_cur_time();
-        gflops2 = calculate_gflops(N1, N2, N3, t2 - t1);
-        printf("thread (NTROW=%d, NTCOL=%d): time = %f s, GFLOPS = %f\n", NTROW, NTCOL, t2 - t1, gflops2);
+            printf("\n----------- Iterazione %d: NTROW = %d, NTCOL = %d -----------\n", idx + 1, NTROW, NTCOL);
 
-        // Confronta i risultati
-        if (compare_matrices(C, C_block, ldC, N1, N3))
-        {
-            printf("Le matrici sono uguali.\n");
+            // inizializzo matrici
+            initialize_matrices(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+
+            t1 = get_cur_time();
+            matmatijk(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+            t2 = get_cur_time();
+            gflops = calculate_gflops(N1, N2, N3, t2 - t1);
+            printf("ijk: time = %f s, GFLOPS = %f\n", t2 - t1, gflops);
+
+            // Copia il risultato di C in C_block per il confronto
+            memcpy(C_block, C, ldC * ldC * sizeof(double));
+
+            // Esegui matmatblock
+            initialize_matrices(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+            t1 = get_cur_time();
+            matmatblock(ldA, ldB, ldC, A, B, C, N1, N2, N3, dbA, dbB, dbC);
+            t2 = get_cur_time();
+            gflops2 = calculate_gflops(N1, N2, N3, t2 - t1);
+            printf("block: time = %f s, GFLOPS = %f\n", t2 - t1, gflops2);
+
+            int check = compare_matrices(C, C_block, ldC, N1, N3);
+
+            // Confronta i risultati
+            if (check)
+            {
+                printf("Le matrici sono uguali.\n");
+            }
+            else
+            {
+                printf("Le matrici non sono uguali.\n");
+            }
+
+            // Esegui matmatthread
+            initialize_matrices(ldA, ldB, ldC, A, B, C, N1, N2, N3);
+            t1 = get_cur_time();
+            matmatthread(ldA, ldB, ldC, A, B, C, N1, N2, N3, dbA, dbB, dbC, NTROW, NTCOL);
+            t2 = get_cur_time();
+            gflops2 = calculate_gflops(N1, N2, N3, t2 - t1);
+            printf("thread (NTROW=%d, NTCOL=%d): time = %f s, GFLOPS = %f\n", NTROW, NTCOL, t2 - t1, gflops2);
+            check = compare_matrices(C, C_block, ldC, N1, N3);
+            // Confronta i risultati
+            if (check)
+            {
+                printf("Le matrici sono uguali.\n");
+            }
+            else
+            {
+                printf("Le matrici non sono uguali.\n");
+            }
         }
-        else
-        {
-            printf("Le matrici non sono uguali.\n");
-        }
+        free(C_block);
+        free(A);
+        free(B);
+        free(C);
     }
 
-    free(C_block);
-    free(A);
-    free(B);
-    free(C);
     return 0;
     /*
         t1 = get_cur_time();
@@ -317,14 +335,20 @@ void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,
         block_cols = end_j - start_j;
 
         // printf("processo %d%d calcola %d %d della mat\n", IDi, IDj, block_rows, block_cols);
+#pragma omp critical
+        {
+            printf("\n=== Thread %d (IDi=%d, IDj=%d) ===\n", thread_id, IDi, IDj);
+            printf("Divisione teorica: N1/NTrow=%d, N3/NTcol=%d\n", N1 / NTrow, N3 / NTcol);
+            printf("Range righe: start_i=%d, end_i=%d (block_rows=%d)\n", start_i, end_i, block_rows);
+            printf("Range colonne: start_j=%d, end_j=%d (block_cols=%d)\n", start_j, end_j, block_cols);
+        }
 
         // Chiamata alla funzione `matmatblock` per calcolare il blocco
-
         matmatblock(ldA, ldB, ldC,
                     &A[start_i * ldA],           // Offset riga del blocco di A
-                    &B[start_j],                 // Offset colonna del blocco di B
+                    &B[start_j],                 // Mi serve l'intera colonna di B
                     &C[start_i * ldC + start_j], // Offset del blocco di C
-                    N1/NTrow, N2, N3/NTcol,
+                    block_rows, N2, block_cols,
                     dbA, dbB, dbC);
     }
 }
@@ -386,7 +410,7 @@ double get_cur_time()
 }
 double calculate_gflops(int N1, int N2, int N3, double time_seconds)
 {
-    double operations = 2.0 * (N1 * N2 * N3);
-    double gflops = (operations / time_seconds) / 1e9;
+    double operations = (double)(2.0 * ((double)N1 * (double)N2 * (double)N3));
+    double gflops = (double)((operations / time_seconds) / 1e9);
     return gflops;
 }

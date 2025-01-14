@@ -5,12 +5,17 @@
 #include <stdio.h>
 #include <mpi.h>
 #include <stdlib.h>
+#include <omp.h>
+#include <sys/time.h>
 
-void matmatikj(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3)
+void matmatikj(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3);
 void matmatdist(MPI_Comm, int, int, int, double *, double *, double *, int, int, int, int, int, int, int, int);
 void matmatblock(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC);
-void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,int N1, int N2, int N3, int dbA, int dbB, int dbC,int NTrow, int NTcol);
+void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3, int dbA, int dbB, int dbC, int NTrow, int NTcol);
 double get_cur_time();
+int lcm(int a, int b);
+int gcd(int a, int b);
+void copy_matrix_block(double *dest, double *src, int rows, int cols, int ld);
 
 int main(int argc, char *argv[])
 {
@@ -19,7 +24,7 @@ int main(int argc, char *argv[])
     int X, Y, Q, R;
     double *A, *B, *C, *D;
     double time1, time2, Ndouble;
-   
+
     MPI_Comm GridCom;
 
     MPI_Init(&argc, &argv);
@@ -257,7 +262,131 @@ void matmatthread(int ldA, int ldB, int ldC, double *A, double *B, double *C,
     }
 }
 
-void matmatdist(MPI_Comm Gridcom, int ldA, int ldB, int ldC,
+void matmatdist(MPI_Comm Gridcom, int ldA, int ldB, int ldC, double *A, double *B, double *C, int N1, int N2, int N3,
+                int dbA, int dbB, int dbC, int NTrow, int NTcol)
+{
+    int rank, coords[2], size;
+    MPI_Comm_size(Gridcom, &size);
+    MPI_Comm_rank(Gridcom, &rank);
+    MPI_Cart_coords(Gridcom, rank, 2, coords);
+
+    int row = coords[0]; // Riga del processo
+    int col = coords[1]; // Colonna del processo
+
+    int dims[2], periods[2];
+    MPI_Cart_get(Gridcom, 2, dims, periods, coords);
+
+    // Calcolo del minimo comune multiplo tra dims[0] e dims[1]
+    int K2 = lcm(dims[0], dims[1]);
+
+    // Dimensioni dei blocchi
+    int block_rows_A = N1 / dims[0];
+    int block_cols_A = N2 / K2;
+    int block_rows_B = N2 / K2;
+    int block_cols_B = N3 / dims[1];
+
+    // Allocazione dei blocchi locali
+    double *A_col = (double *)malloc(block_rows_A * block_cols_A * sizeof(double));
+    double *B_row = (double *)malloc(block_rows_B * block_cols_B * sizeof(double));
+
+    // Creazione dei communicator per le righe e le colonne
+    MPI_Comm row_comm, col_comm;
+    int remain_dims[2];
+
+    // Creazione del communicator per le righe
+    remain_dims[0] = 0; // Fissa la dimensione delle righe
+    remain_dims[1] = 1; // Lascia libera la dimensione delle colonne
+    MPI_Cart_sub(Gridcom, remain_dims, &row_comm);
+
+    // Creazione del communicator per le colonne
+    remain_dims[0] = 1; // Lascia libera la dimensione delle righe
+    remain_dims[1] = 0; // Fissa la dimensione delle colonne
+    MPI_Cart_sub(Gridcom, remain_dims, &col_comm);
+
+    int i, j, k;
+    // Inizializzazione dei puntatori di partenza
+    double *A_start = A;
+    double *B_start = B;
+
+    for (k = 0; k < K2; k++)
+    {
+        int c = k % dims[0];
+        int r = k % dims[1];
+
+        if (coords[1] == c)
+        {
+            copy_matrix_block(A_col, A_start, block_rows_A, block_cols_A, ldA);
+            A_start += block_cols_A;
+        }
+
+        if (coords[0] == r)
+        {
+            copy_matrix_block(B_row, B_start, block_rows_B, block_cols_B, ldB);
+            B_start += block_rows_B * ldB;
+        }
+
+        // Broadcast dei blocchi di A lungo le righe
+        MPI_Bcast(A_col, block_rows_A * block_cols_A, MPI_DOUBLE, c, row_comm);
+
+        // Broadcast dei blocchi di B lungo le colonne
+        MPI_Bcast(B_row, block_rows_B * block_cols_B, MPI_DOUBLE, r, col_comm);
+
+        // Calcolo del prodotto locale
+        matmatthread(block_cols_A, block_cols_B, ldC, 
+                    A_col, B_row, C,
+                     block_rows_A, block_cols_A, block_cols_B,
+                     dbA, dbB, dbC, 
+                     NTrow, NTcol);
+    }
+
+    // Pulizia
+    free(A_col);
+    free(B_row);
+    MPI_Comm_free(&row_comm);
+    MPI_Comm_free(&col_comm);
+}
+
+// Definizione della funzione helper
+void copy_matrix_block(double *dest, double *src, int rows, int cols, int ld) {
+    int i = 0;
+    for(i = 0; i < rows; i++) {
+        for(int j = 0; j < cols; j++) {
+            dest[i * cols + j] = src[i * ld + j];
+        }
+    }
+}
+
+// Funzione per calcolare il minimo comune multiplo
+int lcm(int a, int b)
+{
+    return (a * b) / gcd(a, b);
+}
+
+// Funzione per calcolare il massimo comune divisore
+int gcd(int a, int b)
+{
+    while (b != 0)
+    {
+        int t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+double get_cur_time()
+{
+    struct timeval tv;
+    struct timezone tz;
+    double cur_time;
+
+    gettimeofday(&tv, &tz);
+    cur_time = tv.tv_sec + tv.tv_usec / 1000000.0;
+
+    return cur_time;
+}
+/*
+void matmatdist_old(MPI_Comm Gridcom, int ldA, int ldB, int ldC,
                 double *A, double *B, double *C,
                 int N1, int N2, int N3, int NPRow, int NPCol,
                 int DB1, int DB2, int DB3, int NTrow, int NTcol)
@@ -325,15 +454,4 @@ void matmatdist(MPI_Comm Gridcom, int ldA, int ldB, int ldC,
     free(Acol);
     free(Brow);
 }
-
-double get_cur_time()
-{
-    struct timeval tv;
-    struct timezone tz;
-    double cur_time;
-
-    gettimeofday(&tv, &tz);
-    cur_time = tv.tv_sec + tv.tv_usec / 1000000.0;
-
-    return cur_time;
-}
+*/

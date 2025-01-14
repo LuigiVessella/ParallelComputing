@@ -1,8 +1,13 @@
+/*
+Come il file matmathread.c ma con un main differente, i risultati prodotti sono gli stessi.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <math.h>
 #include <omp.h>
+
 
 void initialize_matrix_to_zero(double *A, int LD, int N);
 void initialize_matrix(double *A, int LD, int N);

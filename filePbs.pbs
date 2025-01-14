@@ -1,0 +1,17 @@
+#!/bin/bash
+#PBS -q studenti
+#PBS -l nodes=1:ppn=2
+#PBS -l mem=1GB
+#PBS -N matmatdist
+#PBS -o matmatdist.out
+#PBS -e matmatdist.err
+
+cat $PBS_NODEFILE
+cd $PBS_O_WORKDIR
+sort -u $PBS_NODEFILE > machinefile
+NCPU=`wc -l < machinefile`
+echo "Il job e' in esecuzione sugli" $NCPU " nodi:"
+cat machinefile
+MPI_DIR=/usr/lib64/openmpi/1.4-gcc/bin
+$MPI_DIR/mpicc -o matmatdist matmatdist.c -fopenmp -O3
+$MPI_DIR/mpiexec -np $NCPU -machinefile machinefile matmatdist
